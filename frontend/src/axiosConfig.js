@@ -1,9 +1,13 @@
 import axios from 'axios';
 
-// Crear instancia de axios con la URL base correcta
+// Configuración fija para producción sin depender de variables de entorno
+const baseURL = 'https://favoritosmarket-api.onrender.com';
+
 const instance = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000',
+  baseURL: baseURL,
 });
+
+console.log('API URL configurada:', baseURL);
 
 // Interceptor para incluir el token en las solicitudes
 instance.interceptors.request.use(

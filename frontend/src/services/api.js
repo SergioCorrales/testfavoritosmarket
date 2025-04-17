@@ -34,6 +34,15 @@ export const uploadImage = (formData) => {
   });
 };
 
+// Agregar esta función específica para la subida de imágenes de registro
+export const uploadRegistrationImage = (formData) => {
+  return axios.post('/api/upload/registration-image', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+};
+
 // Función para probar la conexión al backend
 export const testApiConnection = async () => {
   try {
