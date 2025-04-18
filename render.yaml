@@ -1,21 +1,25 @@
+# Render Blueprint - Intento Simplificado
+
 services:
+  # Node.js Backend Service
   - type: web
-    name: favoritosmarket-api
+    name: node-backend-market
     env: node
-    buildCommand: cd backend && npm install
-    startCommand: cd backend && npm start
+    # plan: free # Opcional, Render suele usar free por defecto
+    rootDir: ./backend
+    buildCommand: npm install
+    startCommand: npm start
+    # healthCheckPath: / # Eliminado temporalmente
     envVars:
+      # DATABASE_URL será inyectada automáticamente
       - key: NODE_ENV
         value: production
       - key: JWT_SECRET
         generateValue: true
-      - key: PORT
-        value: 10000
-      - key: DATABASE_URL
-        fromDatabase:
-          name: favoritosmarket-db
-          property: connectionString
+      # - key: FRONTEND_URL # Añadir después si funciona
+      #   value: https://tu-app.netlify.app
 
-databases:
-  - name: favoritosmarket-db
-    plan: free
+  # PostgreSQL Database Service
+  - type: pserv
+    name: postgres-db-market
+    # plan: free # Eliminado temporalmente

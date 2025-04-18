@@ -1,6 +1,6 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { Container, Form, Button, Alert, Row, Col } from 'react-bootstrap';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { UserContext } from '../context/UserContext';
 
@@ -11,6 +11,15 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const { login } = useContext(UserContext);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Comprobar si hay un mensaje de sesión expirada
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('expired') === 'true') {
+      setError('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
+    }
+  }, [location]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -36,7 +45,7 @@ const LoginPage = () => {
       console.log('Respuesta de login:', response.data);
       
       // Verificar si recibimos un token y datos de usuario
-      if (response.data && response.data.token) {
+      if (response.data && response.data.token && response.data.user) {
         // Guardar datos en el contexto
         login(response.data);
         

@@ -21,40 +21,52 @@ const ProfilePage = () => {
   // Imagen base64 para usar como fallback
   const defaultProfileImage = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgZmlsbD0iI2VlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIGZpbGw9IiM5OTkiPlNpbiBJbWFnZW48L3RleHQ+PC9zdmc+';
 
-  // Cargar datos del perfil
+  // Función para cargar datos del perfil
   const loadProfileData = async () => {
     try {
-      if (!user || !user.token) {
-        console.error('No hay usuario autenticado para cargar perfil');
-        setError('Debes iniciar sesión para ver tu perfil');
+      setLoading(true);
+      setError(null);
+      
+      // Verificar si tenemos token antes de hacer la petición
+      if (!user?.token) {
+        setError('No hay sesión activa. Por favor, inicia sesión nuevamente.');
         setLoading(false);
         return;
       }
-
+      
       console.log('Cargando perfil con token:', user.token.substring(0, 15) + '...');
-
-      // Hacer la solicitud al endpoint correcto usando el token actual
+      
       const response = await axios.get('/api/auth/profile', {
         headers: {
-          'Authorization': `Bearer ${user.token}`
+          Authorization: `Bearer ${user.token}`
         }
       });
-
-      console.log('Datos de perfil recibidos:', response.data);
       
-      // Actualizar el estado con los datos del perfil
-      setProfileData(response.data);
-      setNombre(response.data.nombre || '');
-      setFotoPerfil(response.data.foto_perfil || '');
-      setError('');
+      // Verificar respuesta y formatear datos
+      if (response.data) {
+        console.log('Datos de perfil recibidos:', response.data);
+        setProfileData(response.data);
+        setNombre(response.data.nombre || '');
+        setFotoPerfil(response.data.foto_perfil || '');
+      } else {
+        throw new Error('Respuesta vacía del servidor');
+      }
     } catch (err) {
       console.error('Error al cargar datos del perfil:', err);
       
-      if (err.response?.status === 401) {
-        // Error de autenticación
-        setError('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
+      // Mostrar mensaje específico según el tipo de error
+      if (err.response) {
+        if (err.response.status === 401) {
+          setError('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
+          // Considerar cerrar sesión automáticamente
+          // logout();
+        } else {
+          setError(`Error del servidor: ${err.response.data?.error || 'Algo salió mal'}`);
+        }
+      } else if (err.request) {
+        setError('No se pudo conectar con el servidor. Verifica tu conexión a internet.');
       } else {
-        setError('No se pudieron cargar los datos del perfil. Intenta de nuevo más tarde.');
+        setError(`Error: ${err.message}`);
       }
     } finally {
       setLoading(false);
@@ -64,7 +76,7 @@ const ProfilePage = () => {
   // Cargar datos al montar el componente
   useEffect(() => {
     loadProfileData();
-  }, [user?.token, loadProfileData]); // Añadido loadProfileData como dependencia
+  }, [user?.token]); // Eliminado loadProfileData como dependencia
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();

@@ -1,84 +1,52 @@
 const jwt = require('jsonwebtoken');
-const pool = require('../db');
+const cookieParser = require('cookie-parser');
 
-/**
- * Middleware de autenticación que verifica el token JWT y establece req.user
- */
-const auth = async (req, res, next) => {
-  // Log para depuración inicial
-  console.log('🔒 Auth middleware - Inicio de verificación de token');
-  
+module.exports = function(req, res, next) {
   try {
-    // Verificar header de autorización
-    const authHeader = req.headers.authorization;
+    // Obtener token de cookie (preferido) o del header de autorización
+    let token = req.cookies?.token; // Primero intentamos desde cookie
     
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('🔒 Auth middleware - No se encontró token Bearer');
-      return res.status(401).json({ error: 'Acceso no autorizado, token no proporcionado' });
+    // Si no hay cookie, intentamos desde el header (para compatibilidad)
+    if (!token) {
+      const authHeader = req.header('Authorization');
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+      }
     }
-
-    // Extraer token
-    const token = authHeader.split(' ')[1];
     
     if (!token) {
-      console.log('🔒 Auth middleware - Token vacío tras split');
-      return res.status(401).json({ error: 'Token no proporcionado' });
+      return res.status(401).json({ error: 'Acceso denegado. No se proporcionó token de autenticación.' });
     }
 
+    // Verificar token
     try {
-      // Clave secreta para JWT
-      const secretKey = process.env.JWT_SECRET || 'tu_clave_secreta_aqui';
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
       
-      // Verificar y decodificar token
-      const decoded = jwt.verify(token, secretKey);
-      console.log(`🔒 Auth middleware - Token verificado: userId=${decoded.userId}`);
-      
-      if (!decoded.userId) {
-        console.log('🔒 Auth middleware - Token no contiene userId');
-        return res.status(401).json({ error: 'Token malformado' });
+      // Comprobación crítica: asegurarse de que el ID de usuario existe
+      if (!decoded.id) {
+        console.error('Token decodificado sin ID de usuario:', decoded);
+        return res.status(401).json({ error: 'Token inválido: falta información del usuario' });
       }
       
-      // Buscar usuario en la base de datos con un SELECT explícito
-      const result = await pool.query(
-        'SELECT id, email, nombre FROM usuarios WHERE id = $1',
-        [decoded.userId]
-      );
+      req.user = decoded;
       
-      if (result.rows.length === 0) {
-        console.log(`🔒 Auth middleware - Usuario ID ${decoded.userId} no encontrado`);
-        return res.status(401).json({ error: 'Usuario no encontrado' });
-      }
+      // Log para depuración
+      console.log(`✅ Usuario autenticado: ${decoded.id}`);
       
-      // CRÍTICO: Asignar el usuario al request de forma explícita y verificable
-      req.user = {
-        id: Number(result.rows[0].id), // Asegurar que es un número
-        email: result.rows[0].email,
-        nombre: result.rows[0].nombre
-      };
-      
-      console.log(`🔒 Auth middleware - Usuario establecido: ${JSON.stringify(req.user)}`);
-      
-      // VERIFICACIÓN ADICIONAL - Asegurar que req.user persiste
-      if (!req.user || !req.user.id) {
-        console.error('🔒 Auth middleware - req.user no fue establecido correctamente');
-        return res.status(500).json({ error: 'Error en middleware de autenticación' });
-      }
-      
-      // Continuar con la cadena de middleware
       next();
-    } catch (error) {
-      console.error('🔒 Auth middleware - Error de token:', error.message);
+    } catch (jwtError) {
+      console.error('Error al verificar token JWT:', jwtError.message);
       
-      if (error.name === 'TokenExpiredError') {
-        return res.status(401).json({ error: 'Token expirado' });
+      if (jwtError.name === 'TokenExpiredError') {
+        return res.status(401).json({ error: 'El token de autenticación ha expirado' });
+      } else if (jwtError.name === 'JsonWebTokenError') {
+        return res.status(401).json({ error: 'Token inválido' });
       }
       
-      return res.status(401).json({ error: 'Token inválido' });
+      throw jwtError; // Re-lanzar otros errores
     }
   } catch (err) {
-    console.error('🔒 Auth middleware - Error general:', err);
-    res.status(500).json({ error: 'Error del servidor' });
+    console.error('Error general de autenticación:', err.message);
+    res.status(401).json({ error: 'Error de autenticación: ' + err.message });
   }
 };
-
-module.exports = auth;

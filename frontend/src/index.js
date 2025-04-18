@@ -4,18 +4,24 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 
-// Importar Bootstrap CSS (si está instalado)
+// Importar Bootstrap CSS
 import 'bootstrap/dist/css/bootstrap.min.css';
 
-// Importar UserProvider correctamente (usando named import)
+// Importar proveedores de contexto
 import { UserProvider } from './context/UserContext';
+import { NotificationProvider } from './context/NotificationContext';
+import { CartProvider } from './context/CartContext';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <UserProvider>
-      <App />
-    </UserProvider>
+    <NotificationProvider>
+      <UserProvider>
+        <CartProvider>
+          <App />
+        </CartProvider>
+      </UserProvider>
+    </NotificationProvider>
   </React.StrictMode>
 );
 

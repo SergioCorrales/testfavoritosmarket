@@ -20,6 +20,14 @@ const MyPostsPage = () => {
       }
 
       try {
+        // Verificar que el ID de usuario existe antes de hacer la petición
+        if (!user.id) {
+          console.error('ID de usuario no disponible');
+          setError('Información de usuario incompleta. Por favor, inicia sesión nuevamente.');
+          setLoading(false);
+          return;
+        }
+        
         console.log('Obteniendo publicaciones del usuario con ID:', user.id);
         
         // URL específica para obtener publicaciones del usuario
@@ -35,12 +43,17 @@ const MyPostsPage = () => {
         // Si no hay publicaciones, intentar también con usuario_id = null para proponer reclamar
         if (response.data.length === 0) {
           console.log('Consultando publicaciones sin dueño para reclamar');
-          const orphanPosts = await axios.get('/api/posts');
-          const unclaimedPosts = orphanPosts.data.filter(post => !post.usuario_id);
-          
-          if (unclaimedPosts.length > 0) {
-            console.log(`Encontradas ${unclaimedPosts.length} publicaciones sin dueño`);
-            // No establecemos aquí, solo generamos un mensaje de ayuda
+          try {
+            const orphanPosts = await axios.get('/api/posts');
+            const unclaimedPosts = orphanPosts.data.filter(post => !post.usuario_id);
+            
+            if (unclaimedPosts.length > 0) {
+              console.log(`Encontradas ${unclaimedPosts.length} publicaciones sin dueño`);
+              // No establecemos aquí, solo generamos un mensaje de ayuda
+            }
+          } catch (orphanError) {
+            console.warn('Error al buscar publicaciones sin dueño:', orphanError);
+            // No mostramos este error al usuario
           }
         }
         

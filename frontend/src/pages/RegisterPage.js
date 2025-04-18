@@ -1,49 +1,69 @@
 import React, { useState } from 'react';
-import { Form, Button, Container, Row, Col, Alert } from 'react-bootstrap';
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { Form, Button, Container, Row, Col } from 'react-bootstrap';
+import { useNavigate, Link } from 'react-router-dom';
 import RegistrationImageUploader from '../components/RegistrationImageUploader';
+import { authService } from '../services/apiClient';
+import { useNotification } from '../context/NotificationContext';
+import { formValidators } from '../utils/validators';
 
 const RegisterPage = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [nombre, setNombre] = useState('');
-  const [fotoPerfil, setFotoPerfil] = useState('');
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(false);
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    nombre: '',
+    foto_perfil: ''
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const navigate = useNavigate();
-
+  const { showSuccess, showError } = useNotification();
+  
+  // Manejar cambios en los campos del formulario
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+  
   // Manejador para la imagen cargada
   const handleImageUploaded = (imageUrl) => {
-    setFotoPerfil(imageUrl);
+    setFormData(prev => ({
+      ...prev,
+      foto_perfil: imageUrl
+    }));
   };
 
   // Manejar el envío del formulario
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+    
     // Validar campos obligatorios
-    if (!email || !password || !nombre) {
-      setError('Por favor, completa los campos obligatorios.');
-      setSuccess(false);
+    if (!formData.email || !formData.password || !formData.nombre) {
+      showError('Por favor, completa los campos obligatorios.');
       return;
     }
     
-    const userData = {
-      email,
-      password,
-      nombre,
-      foto_perfil: fotoPerfil || ''
-    };
+    // Validar formato de email
+    if (!formValidators.isValidEmail(formData.email)) {
+      showError('Por favor, ingresa un email válido.');
+      return;
+    }
+    
+    // Validar longitud de contraseña
+    if (formData.password.length < 6) {
+      showError('La contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+
+    setIsSubmitting(true);
 
     try {
-      // Renombrada 'response' a 'registerResponse' y usada para debug
-      const registerResponse = await axios.post('/api/auth/register', userData);
-      console.log('Registro exitoso:', registerResponse.data);
+      const response = await authService.register(formData);
+      console.log('Registro exitoso:', response.data);
 
-      // Si el registro es exitoso
-      setError(null);
-      setSuccess(true);
+      showSuccess('Registro exitoso. Redirigiendo al inicio de sesión...');
 
       // Redirigir al usuario al login después de 2 segundos
       setTimeout(() => {
@@ -52,11 +72,12 @@ const RegisterPage = () => {
     } catch (err) {
       // Manejar errores del backend
       if (err.response && err.response.data.error) {
-        setError(err.response.data.error);
+        showError(err.response.data.error);
       } else {
-        setError('Ocurrió un error. Por favor, inténtalo más tarde.');
+        showError('Ocurrió un error. Por favor, inténtalo más tarde.');
       }
-      setSuccess(false);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -66,18 +87,15 @@ const RegisterPage = () => {
         <Col md={6}>
           <h1 className="text-center mb-4">Registro</h1>
 
-          {/* Mostrar mensajes de error o éxito */}
-          {error && <Alert variant="danger">{error}</Alert>}
-          {success && <Alert variant="success">Registro exitoso. Redirigiendo al inicio de sesión...</Alert>}
-
           <Form onSubmit={handleSubmit}>
             <Form.Group controlId="formNombre" className="mb-3">
               <Form.Label>Nombre <span className="text-danger">*</span></Form.Label>
               <Form.Control
                 type="text"
                 placeholder="Ingresa tu nombre"
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
+                name="nombre"
+                value={formData.nombre}
+                onChange={handleChange}
                 required
               />
             </Form.Group>
@@ -87,8 +105,9 @@ const RegisterPage = () => {
               <Form.Control
                 type="email"
                 placeholder="Ingresa tu email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
                 required
               />
             </Form.Group>
@@ -98,21 +117,35 @@ const RegisterPage = () => {
               <Form.Control
                 type="password"
                 placeholder="Ingresa tu contraseña"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
                 required
               />
+              <Form.Text className="text-muted">
+                La contraseña debe tener al menos 6 caracteres.
+              </Form.Text>
             </Form.Group>
 
-            {/* Componente de carga de imágenes específico para registro */}
             <RegistrationImageUploader 
               onImageUploaded={handleImageUploaded}
-              initialImage={fotoPerfil}
+              initialImage={formData.foto_perfil}
             />
 
-            <Button variant="primary" type="submit" className="w-100 mt-3">
-              Registrarse
+            <Button 
+              variant="primary" 
+              type="submit" 
+              className="w-100 mt-3"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Procesando...' : 'Registrarse'}
             </Button>
+            
+            <div className="text-center mt-3">
+              <p>
+                ¿Ya tienes cuenta? <Link to="/login">Iniciar sesión</Link>
+              </p>
+            </div>
           </Form>
         </Col>
       </Row>
